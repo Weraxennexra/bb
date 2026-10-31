@@ -54,4 +54,253 @@
   }
   button:hover { background: linear-gradient(135deg, #4a4a4a, #2a2a2a); border-color: #666; }
   button.danger { border-color: #5a2d2d; color: #e6a8a8; }
-  button.danger
+  button.danger:hover { background: #3a1a1a; border-color: #7c4a4a; color: #fff; }
+  
+  .row { display: flex; gap: 12px; margin-bottom: 12px; flex-wrap: wrap; align-items: flex-end; }
+  .row > * { flex: 1; min-width: 150px; }
+  .row > button { flex: 0 0 auto; min-width: 120px; }
+
+  table { width: 100%; border-collapse: collapse; margin-top: 16px; font-size: 0.85rem; }
+  th, td { padding: 12px; text-align: left; border-bottom: 1px solid #222; }
+  th { color: #777; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; font-size: 0.75rem; }
+  td { color: #ccc; font-family: 'Courier New', monospace; word-break: break-all; }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: rgba(255,255,255,0.02); }
+
+  .tag { padding: 4px 10px; border-radius: 6px; font-size: 0.75rem; font-weight: 600; display: inline-block; }
+  .tag.ok { background: rgba(45,90,45,0.3); color: #a8e6a8; border: 1px solid #3a5a3a; }
+  .tag.no { background: rgba(90,45,45,0.3); color: #e6a8a8; border: 1px solid #5a3a3a; }
+  
+  .msg { padding: 10px 14px; border-radius: 8px; margin: 12px 0; font-size: 0.85rem; display: none; }
+  .msg.err { background: rgba(90,45,45,0.2); color: #e6a8a8; border: 1px solid #5a3a3a; display: block; }
+  .msg.ok { background: rgba(45,90,45,0.2); color: #a8e6a8; border: 1px solid #3a5a3a; display: block; }
+  .hidden { display: none !important; }
+
+  @media (max-width: 768px) {
+    .row > * { min-width: 100%; }
+    .panel { padding: 20px; }
+    th, td { padding: 8px; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Nexyn Services Yönetici</h1>
+
+  <!-- Giriş Ekranı -->
+  <div id="loginPanel" class="panel">
+    <h2>Yönetici Girişi</h2>
+    <div class="row">
+      <input type="password" id="pass" placeholder="Admin şifresini girin...">
+      <button onclick="login()">Giriş Yap</button>
+    </div>
+    <div id="loginMsg"></div>
+  </div>
+
+  <!-- Yönetim Ekranı -->
+  <div id="mainPanel" class="hidden">
+    
+    <!-- Key Oluşturma -->
+    <div class="panel">
+      <h2>Yeni Key Oluştur</h2>
+      <div class="row">
+        <div style="flex:2;">
+          <input type="text" id="kLabel" placeholder="Müşteri / Etiket Adı (örn: Ahmet)">
+        </div>
+        <div style="flex:1;">
+          <input type="number" id="kHours" placeholder="Süre (Saat)" value="24" min="1">
+        </div>
+        <button onclick="createKey()">Key Üret</button>
+      </div>
+      <div id="keyMsg"></div>
+    </div>
+
+    <!-- Key Listesi -->
+    <div class="panel">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+        <h2>Oluşturulan Keyler</h2>
+        <button onclick="loadKeys()" style="padding:6px 16px; font-size:0.8rem;">Yenile</button>
+      </div>
+      <div style="overflow-x:auto;">
+        <table id="keysTable">
+          <thead>
+            <tr>
+              <th>Key</th>
+              <th>Etiket</th>
+              <th>Durum</th>
+              <th>Kalan Süre</th>
+              <th>Kullanım</th>
+              <th>Aksiyon</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- IP Block -->
+    <div class="panel">
+      <h2>IP Engelleme</h2>
+      <div class="row">
+        <input type="text" id="ipInput" placeholder="Engellenecek IP (örn: 192.168.1.50)">
+        <button class="danger" onclick="blockIP()">IP'yi Engelle</button>
+      </div>
+      <div id="ipMsg"></div>
+      <table id="ipTable" style="margin-top:16px;">
+        <thead><tr><th>Engellenen IP Adresi</th><th>Aksiyon</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+
+  </div>
+</div>
+
+<script>
+  let adminPass = '';
+
+  function login() {
+    adminPass = document.getElementById('pass').value;
+    loadKeys();
+  }
+
+  async function api(path, opts = {}) {
+    opts.headers = { ...(opts.headers||{}), 'X-Admin-Pass': adminPass, 'Content-Type': 'application/json' };
+    const r = await fetch(path, opts);
+    const data = await r.json().catch(()=>({}));
+    if (r.status === 401) {
+      document.getElementById('loginMsg').innerHTML = '<div class="msg err">Hatalı şifre!</div>';
+      document.getElementById('mainPanel').classList.add('hidden');
+      throw new Error('unauth');
+    }
+    return data;
+  }
+
+  async function loadKeys() {
+    try {
+      const keys = await api('/api/admin/keys');
+      const tb = document.querySelector('#keysTable tbody');
+      tb.innerHTML = '';
+      
+      if (keys.length === 0) {
+        tb.innerHTML = '<tr><td colspan="6" style="text-align:center; color:#666;">Henüz key oluşturulmamış.</td></tr>';
+      }
+
+      keys.forEach(k => {
+        const rem = k.expiresAt - Date.now();
+        const expired = rem <= 0;
+        
+        let durum = '';
+        if (k.revoked) durum = '<span class="tag no">İptal Edildi</span>';
+        else if (expired) durum = '<span class="tag no">Süresi Doldu</span>';
+        else durum = '<span class="tag ok">Aktif</span>';
+        
+        let kalan = '-';
+        if (!expired && !k.revoked) {
+          const h = Math.floor(rem / 3600000);
+          const m = Math.floor((rem % 3600000) / 60000);
+          kalan = `${h}s ${m}dk`;
+        }
+
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td style="color:#fff; user-select:all;">${k.key}</td>
+          <td>${k.label}</td>
+          <td>${durum}</td>
+          <td>${kalan}</td>
+          <td>${k.uses || 0}</td>
+          <td>
+            ${!k.revoked && !expired ? `<button class="danger" onclick="revokeKey('${k.key}')" style="padding:4px 8px; font-size:0.75rem; margin-right:4px;">İptal Et</button>` : ''}
+            <button class="danger" onclick="deleteKey('${k.key}')" style="padding:4px 8px; font-size:0.75rem;">Sil</button>
+          </td>
+        `;
+        tb.appendChild(tr);
+      });
+
+      document.getElementById('loginPanel').classList.add('hidden');
+      document.getElementById('mainPanel').classList.remove('hidden');
+      loadIPs();
+    } catch(e) { }
+  }
+
+  async function createKey() {
+    const label = document.getElementById('kLabel').value.trim();
+    const hours = parseInt(document.getElementById('kHours').value);
+    
+    if (!hours || hours <= 0) {
+      showMsg('keyMsg', 'Lütfen geçerli bir süre (saat) girin.', 'err');
+      return;
+    }
+
+    try {
+      const k = await api('/api/admin/keys', { 
+        method:'POST', 
+        body:JSON.stringify({ label: label || 'İsimsiz', durationHours: hours }) 
+      });
+      showMsg('keyMsg', `Key oluşturuldu: ${k.key}`, 'ok');
+      document.getElementById('kLabel').value = '';
+      loadKeys();
+    } catch(e) {
+      showMsg('keyMsg', 'Key oluşturulamadı.', 'err');
+    }
+  }
+
+  async function revokeKey(key) {
+    if (!confirm(`"${key}" kodlu keyi iptal etmek istediğinize emin misiniz?`)) return;
+    await api('/api/admin/keys/revoke', { method:'POST', body:JSON.stringify({key}) });
+    loadKeys();
+  }
+
+  async function deleteKey(key) {
+    if (!confirm(`"${key}" kodlu keyi tamamen silmek istediğinize emin misiniz?`)) return;
+    await api(`/api/admin/keys/${key}`, { method:'DELETE' });
+    loadKeys();
+  }
+
+  async function loadIPs() {
+    try {
+      const ips = await api('/api/admin/ips');
+      const tb = document.querySelector('#ipTable tbody');
+      tb.innerHTML = '';
+      
+      if (ips.length === 0) {
+        tb.innerHTML = '<tr><td colspan="2" style="text-align:center; color:#666;">Engellenen IP yok.</td></tr>';
+      }
+
+      ips.forEach(ip => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `<td>${ip}</td><td><button class="danger" onclick="unblockIP('${ip}')" style="padding:4px 8px; font-size:0.75rem;">Engeli Kaldır</button></td>`;
+        tb.appendChild(tr);
+      });
+    } catch(e) {}
+  }
+
+  async function blockIP() {
+    const ip = document.getElementById('ipInput').value.trim();
+    if (!ip) {
+      showMsg('ipMsg', 'Lütfen bir IP adresi girin.', 'err');
+      return;
+    }
+    try {
+      await api('/api/admin/ips', { method:'POST', body:JSON.stringify({ip}) });
+      document.getElementById('ipInput').value = '';
+      showMsg('ipMsg', 'IP başarıyla engellendi.', 'ok');
+      loadIPs();
+    } catch(e) {
+      showMsg('ipMsg', 'IP engellenemedi.', 'err');
+    }
+  }
+
+  async function unblockIP(ip) {
+    if (!confirm(`${ip} adresinin engelini kaldırmak istiyor musunuz?`)) return;
+    await api(`/api/admin/ips/${ip}`, { method:'DELETE' });
+    loadIPs();
+  }
+
+  function showMsg(id, text, type) {
+    const el = document.getElementById(id);
+    el.innerHTML = `<div class="msg ${type}">${text}</div>`;
+    setTimeout(() => el.innerHTML = '', 5000);
+  }
+</script>
+</body>
+</html>
