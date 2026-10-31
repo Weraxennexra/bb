@@ -99,7 +99,7 @@
   }
   .copy-btn:hover { background: #222; color: #fff; }
 
-  /* Yeni Profil Kartı Tasarımı */
+  /* Profil Kartı */
   .profile-card {
     display: flex; gap: 24px; align-items: center;
     background: #0a0a0a; border: 1px solid #222; 
@@ -111,8 +111,9 @@
     object-fit: cover; flex-shrink: 0;
   }
   .profile-info h3 { color: #fff; font-size: 1.3rem; margin-bottom: 6px; font-weight: 600; }
-  .profile-info p { color: #888; font-size: 0.85rem; display: flex; align-items: center; gap: 6px; }
+  .profile-info p { color: #888; font-size: 0.85rem; }
   
+  /* Izgara */
   .grid-stats {
     display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px;
   }
@@ -121,10 +122,9 @@
     display: flex; flex-direction: column; gap: 4px;
   }
   .stat-label { color: #777; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600; }
-  .stat-val { color: #e0e0e0; font-family: 'Courier New', monospace; font-size: 0.95rem; font-weight: bold; }
+  .stat-val { color: #e0e0e0; font-family: 'Courier New', monospace; font-size: 0.95rem; font-weight: bold; word-break: break-all;}
   .stat-val.blue { color: #8ab4f8; }
   .stat-val.green { color: #a8e6a8; }
-  .stat-val.red { color: #e6a8a8; }
 
   .footer { margin-top: 24px; text-align: center; font-size: 0.8rem; color: #444; }
   
@@ -154,16 +154,11 @@
   <div class="panel">
     <h2>UID Sorgulama</h2>
     <div class="input-group">
-      <input type="text" id="uidInput" placeholder="Sorgulamak istediğiniz UID'yi girin (örn: 1000)" autocomplete="off">
+      <input type="text" id="uidInput" placeholder="Sorgulamak istediğiniz UID'yi girin (örn: 128430427)" autocomplete="off">
       <button class="action" onclick="lookupUID()">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
         Sorgula
       </button>
-    </div>
-
-    <div id="historyContainer" style="display:none;">
-      <div class="history-header">Son Sorgular</div>
-      <div class="tags-container" id="historyList"></div>
     </div>
   </div>
 
@@ -208,6 +203,21 @@
     });
   }
 
+  // API'den ne gelirse gelsin derinlemesine arayıp bulma fonksiyonu
+  function findDeep(obj, keys) {
+    let result = {};
+    for (let k in obj) {
+      if (keys.includes(k.toLowerCase()) && (typeof obj[k] === 'string' || typeof obj[k] === 'number')) {
+        result[k.toLowerCase()] = obj[k];
+      }
+      if (typeof obj[k] === 'object' && obj[k] !== null) {
+        const sub = findDeep(obj[k], keys);
+        result = { ...result, ...sub }; // Alt objelerden geleni birleştir
+      }
+    }
+    return result;
+  }
+
   async function lookupUID() {
     const uid = document.getElementById('uidInput').value.trim();
     const result = document.getElementById('result');
@@ -239,26 +249,54 @@
       updateTimeLabel(data.remainingMs);
       lastDataJSON = JSON.stringify(data.data, null, 2);
 
-      const d = data.data || {};
-      const extra = d.extra || {};
-      const fb = extra.facebook || {};
+      // Bütün JSON'un içine dal ve aradığımız anahtarları bul
+      const searchKeys = ['nickname', 'name', 'id', 'country', 'devicemodel', 'devicesystem', 'platform', 'createtime', 'production_channelid', 'src'];
+      const rawFound = findDeep(data, searchKeys);
 
-      // Avatar belirleme (varsa facebook src, yoksa varsayılan)
-      let avatarUrl = "https://ui-avatars.com/api/?name=" + (fb.nickname || 'User') + "&background=222&color=fff";
-      if (fb.src) avatarUrl = fb.src;
+      // Bulunan verileri düzenle (yoksa ekrana yazdırma)
+      const hasNickname = rawFound.nickname || rawFound.name;
+      const fbId = rawFound.id;
+      const country = rawFound.country;
+      const deviceModel = rawFound.devicemodel;
+      const deviceSystem = rawFound.devicesystem;
+      const platform = rawFound.platform;
+      const createTime = rawFound.createtime;
+      const channelId = rawFound.production_channelid;
+      let avatarUrl = rawFound.src;
 
-      // Ekranda Gösterilecek Verileri Ayıklama (Sadece işe yarayanlar)
-      const displayData = [
-        { label: 'Sorgulanan UID', value: d.query_uid || uid, class: 'blue' },
-        { label: 'Normalize UID', value: d.normalized_uid || '-', class: '' },
-        { label: 'Kanal ID', value: d.data?.production_channelid || '-', class: 'blue' },
-        { label: 'Oluşturulma Tarihi', value: d.data?.CreateTime || '-', class: '' },
-        { label: 'Facebook ID', value: fb.id || '-', class: 'blue' },
-        { label: 'Platform', value: fb.platform || '-', class: '' },
-        { label: 'Ülke', value: extra.Country || '-', class: 'green' },
-        { label: 'Cihaz Modeli', value: extra.DeviceModel || '-', class: '' },
-        { label: 'İşletim Sistemi', value: extra.DeviceSystem || '-', class: '' }
-      ];
+      // Avatar belirleme
+      if (!avatarUrl) {
+        const safeName = hasNickname ? encodeURIComponent(hasNickname) : 'User';
+        avatarUrl = `https://ui-avatars.com/api/?name=${safeName}&background=222&color=fff&size=100`;
+      }
+
+      // Gösterilecek kutucukları hazırla (Eğer veri yoksa listeye ekleme)
+      let gridHtml = '';
+      const addBox = (label, value, colorClass = '') => {
+        if (value && value !== 'undefined' && value !== 'null' && value !== '') {
+          gridHtml += `
+            <div class="stat-box">
+              <span class="stat-label">${label}</span>
+              <span class="stat-val ${colorClass}">${value}</span>
+            </div>
+          `;
+        }
+      };
+
+      addBox('Sorgulanan UID', data.uid || uid, 'blue');
+      addBox('Normalize UID', rawFound.normalized_uid || (data.data && data.data.normalized_uid), 'blue');
+      addBox('Kanal ID', channelId, 'blue');
+      addBox('Oluşturulma Tarihi', createTime, '');
+      addBox('Facebook ID', fbId, 'blue');
+      addBox('Platform', platform, '');
+      addBox('Ülke', country, 'green');
+      addBox('Cihaz Modeli', deviceModel, '');
+      addBox('İşletim Sistemi', deviceSystem, '');
+
+      // Eğer hiçbir veri bulunamadıysa
+      if (gridHtml === '') {
+        gridHtml = '<div style="grid-column: 1 / -1; text-align:center; color:#777; padding:20px;">Bu UID için detaylı bilgi bulunamadı.</div>';
+      }
 
       let html = `
         <div class="result-header">
@@ -266,31 +304,18 @@
           <button class="copy-btn" id="copyBtn" onclick="copyResult()">JSON Kopyala</button>
         </div>
         
-        <!-- Profil Kartı -->
         <div class="profile-card">
           <img src="${avatarUrl}" class="avatar" alt="Avatar" onerror="this.src='https://ui-avatars.com/api/?name=User&background=222&color=fff'">
           <div class="profile-info">
-            <h3>${fb.nickname || 'İsimsiz Kullanıcı'}</h3>
-            <p>${extra.Country ? 'Konum: ' + extra.Country : 'Konum Bilinmiyor'}</p>
+            <h3>${hasNickname || 'İsimsiz Kullanıcı'}</h3>
+            <p>${country ? 'Konum: ' + country : 'Konum Bilinmiyor'}</p>
           </div>
         </div>
 
-        <!-- Veri Izgarası -->
         <div class="grid-stats">
+          ${gridHtml}
+        </div>
       `;
-
-      displayData.forEach(item => {
-        if (item.value && item.value !== 'undefined' && item.value !== 'null') {
-          html += `
-            <div class="stat-box">
-              <span class="stat-label">${item.label}</span>
-              <span class="stat-val ${item.class}">${item.value}</span>
-            </div>
-          `;
-        }
-      });
-
-      html += `</div>`;
 
       result.className = 'result valid';
       result.innerHTML = html;
