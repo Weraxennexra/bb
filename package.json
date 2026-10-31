@@ -2,6 +2,9 @@
   "name": "nexyn-services",
   "version": "1.0.0",
   "main": "server.js",
+  "engines": {
+    "node": ">=20.0.0 <23.0.0"
+  },
   "scripts": {
     "start": "node server.js"
   },
