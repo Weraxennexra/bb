@@ -76,35 +76,20 @@
     display: flex; align-items: center; gap: 8px;
   }
   button.action:hover { background: linear-gradient(135deg, #555, #333); border-color: #777; transform: translateY(-1px); }
-  button.action:active { transform: translateY(0); }
-
-  .history-header { font-size: 0.8rem; color: #666; margin: 20px 0 8px; text-transform: uppercase; letter-spacing: 1px; }
-  .tags-container { display: flex; flex-wrap: wrap; gap: 8px; }
-  .tag {
-    background: #1c1c1c; border: 1px solid #333; color: #aaa;
-    padding: 6px 12px; border-radius: 20px; font-size: 0.8rem;
-    cursor: pointer; transition: all 0.2s; display: flex; align-items: center; gap: 6px;
-  }
-  .tag:hover { background: #2a2a2a; color: #fff; border-color: #666; }
 
   .result {
     background: #111; border: 1px solid #2e2e2e;
     border-radius: 12px; padding: 24px;
     font-size: 0.92rem; color: #666;
-    min-height: 100px;
-    animation: fadeIn 0.3s ease;
+    min-height: 100px; animation: fadeIn 0.3s ease;
   }
   @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
   
   .result.valid { border-color: #3a5a3a; background: linear-gradient(180deg, rgba(40,70,40,0.1) 0%, #111 100%); }
   .result.invalid { border-color: #5a3a3a; background: linear-gradient(180deg, rgba(70,40,40,0.1) 0%, #111 100%); }
   
-  .result-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
-  .badge {
-    display: inline-block; padding: 4px 12px;
-    border-radius: 20px; font-size: 0.8rem;
-    font-weight: 600;
-  }
+  .result-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 1px solid #222; padding-bottom: 16px; }
+  .badge { padding: 4px 12px; border-radius: 20px; font-size: 0.8rem; font-weight: 600; }
   .badge.ok { background: rgba(45,90,45,0.4); color: #a8e6a8; border: 1px solid #4a7c4a; }
   .badge.no { background: rgba(90,45,45,0.4); color: #e6a8a8; border: 1px solid #7c4a4a; }
   
@@ -114,31 +99,40 @@
   }
   .copy-btn:hover { background: #222; color: #fff; }
 
-  .data-list {
-    display: flex; flex-direction: column; gap: 8px;
-    background: #0a0a0a; border: 1px solid #222; border-radius: 8px; padding: 16px;
+  /* Yeni Profil Kartı Tasarımı */
+  .profile-card {
+    display: flex; gap: 24px; align-items: center;
+    background: #0a0a0a; border: 1px solid #222; 
+    border-radius: 12px; padding: 24px; margin-bottom: 20px;
   }
-  .data-item {
-    display: flex; justify-content: space-between; align-items: flex-start;
-    padding-bottom: 10px; border-bottom: 1px solid #1c1c1c;
+  .avatar {
+    width: 80px; height: 80px; border-radius: 50%;
+    background: #222; border: 2px solid #444;
+    object-fit: cover; flex-shrink: 0;
   }
-  .data-item:last-child { border-bottom: none; padding-bottom: 0; }
-  .data-key { color: #888; font-weight: 600; width: 40%; flex-shrink: 0; font-size: 0.85rem; }
-  .data-value {
-    color: #e0e0e0; font-family: 'Courier New', monospace;
-    text-align: right; word-break: break-all; width: 60%; font-size: 0.9rem;
-  }
-  .data-value.green { color: #a8e6a8; }
-  .data-value.red { color: #e6a8a8; }
-  .data-value.blue { color: #8ab4f8; }
+  .profile-info h3 { color: #fff; font-size: 1.3rem; margin-bottom: 6px; font-weight: 600; }
+  .profile-info p { color: #888; font-size: 0.85rem; display: flex; align-items: center; gap: 6px; }
   
+  .grid-stats {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px;
+  }
+  .stat-box {
+    background: #0a0a0a; border: 1px solid #222; border-radius: 8px; padding: 14px;
+    display: flex; flex-direction: column; gap: 4px;
+  }
+  .stat-label { color: #777; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600; }
+  .stat-val { color: #e0e0e0; font-family: 'Courier New', monospace; font-size: 0.95rem; font-weight: bold; }
+  .stat-val.blue { color: #8ab4f8; }
+  .stat-val.green { color: #a8e6a8; }
+  .stat-val.red { color: #e6a8a8; }
+
   .footer { margin-top: 24px; text-align: center; font-size: 0.8rem; color: #444; }
   
   @media (max-width: 600px) {
     .input-group { flex-direction: column; }
     .panel { padding: 24px 20px; }
-    .data-item { flex-direction: column; gap: 4px; }
-    .data-key, .data-value { width: 100%; text-align: left; }
+    .profile-card { flex-direction: column; text-align: center; }
+    .grid-stats { grid-template-columns: 1fr; }
     .topbar { flex-direction: column; gap: 16px; align-items: flex-start; }
     .top-right { width: 100%; justify-content: space-between; }
   }
@@ -192,7 +186,6 @@
 
   let totalQueries = 0;
   let lastDataJSON = null;
-  let queryHistory = [];
 
   function updateTimeLabel(ms) {
     const hours = Math.floor(ms / 3600000);
@@ -205,69 +198,13 @@
     location.href = '/index.html';
   }
 
-  function renderJSON(obj, prefix = '') {
-    let html = '';
-    for (const key in obj) {
-      if (!obj.hasOwnProperty(key)) continue;
-      const value = obj[key];
-      const fullKey = prefix ? `${prefix} → ${key}` : key;
-      
-      if (value === null || value === undefined) {
-        html += `<div class="data-item"><span class="data-key">${fullKey}</span><span class="data-value red">Yok</span></div>`;
-      } 
-      else if (typeof value === 'object' && !Array.isArray(value)) {
-        html += renderJSON(value, fullKey);
-      } 
-      else if (Array.isArray(value)) {
-        html += `<div class="data-item"><span class="data-key">${fullKey}</span><span class="data-value">${value.join(', ') || 'Boş'}</span></div>`;
-      } 
-      else {
-        let valStr = String(value);
-        let colorClass = '';
-        if (typeof value === 'boolean') colorClass = value ? 'green' : 'red';
-        else if (typeof value === 'number') colorClass = 'blue';
-        
-        if (valStr.startsWith('http')) {
-          valStr = `<a href="${valStr}" target="_blank" style="color:#8ab4f8; text-decoration:underline;">${valStr}</a>`;
-        }
-
-        html += `<div class="data-item"><span class="data-key">${fullKey}</span><span class="data-value ${colorClass}">${valStr}</span></div>`;
-      }
-    }
-    return html;
-  }
-
-  function addToHistory(uid) {
-    if (!queryHistory.includes(uid)) {
-      queryHistory.unshift(uid);
-      if (queryHistory.length > 5) queryHistory.pop();
-      
-      const container = document.getElementById('historyContainer');
-      const list = document.getElementById('historyList');
-      container.style.display = 'block';
-      list.innerHTML = '';
-      
-      queryHistory.forEach(item => {
-        const div = document.createElement('div');
-        div.className = 'tag';
-        div.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20v-6M6 20V10M18 20V4"/></svg> ${item}`;
-        div.onclick = () => {
-          document.getElementById('uidInput').value = item;
-          lookupUID();
-        };
-        list.appendChild(div);
-      });
-    }
-  }
-
   function copyResult() {
     if (!lastDataJSON) return;
     navigator.clipboard.writeText(lastDataJSON).then(() => {
       const btn = document.getElementById('copyBtn');
-      const oldText = btn.textContent;
       btn.textContent = 'Kopyalandi';
       btn.style.color = '#a8e6a8';
-      setTimeout(() => { btn.textContent = oldText; btn.style.color = ''; }, 2000);
+      setTimeout(() => { btn.textContent = 'JSON Kopyala'; btn.style.color = ''; }, 2000);
     });
   }
 
@@ -300,32 +237,66 @@
       totalQueries++;
       document.getElementById('queryCount').textContent = totalQueries;
       updateTimeLabel(data.remainingMs);
-      addToHistory(uid);
-      
       lastDataJSON = JSON.stringify(data.data, null, 2);
 
-      let apiDataHTML = '';
-      if (Object.keys(data.data).length === 0) {
-        apiDataHTML = '<div style="color:#e6a8a8; text-align:center; padding:15px;">API yanıtı boş döndü.</div>';
-      } else {
-        apiDataHTML = `<div class="data-list">${renderJSON(data.data)}</div>`;
-      }
+      const d = data.data || {};
+      const extra = d.extra || {};
+      const fb = extra.facebook || {};
 
-      result.className = 'result valid';
-      result.innerHTML = `
+      // Avatar belirleme (varsa facebook src, yoksa varsayılan)
+      let avatarUrl = "https://ui-avatars.com/api/?name=" + (fb.nickname || 'User') + "&background=222&color=fff";
+      if (fb.src) avatarUrl = fb.src;
+
+      // Ekranda Gösterilecek Verileri Ayıklama (Sadece işe yarayanlar)
+      const displayData = [
+        { label: 'Sorgulanan UID', value: d.query_uid || uid, class: 'blue' },
+        { label: 'Normalize UID', value: d.normalized_uid || '-', class: '' },
+        { label: 'Kanal ID', value: d.data?.production_channelid || '-', class: 'blue' },
+        { label: 'Oluşturulma Tarihi', value: d.data?.CreateTime || '-', class: '' },
+        { label: 'Facebook ID', value: fb.id || '-', class: 'blue' },
+        { label: 'Platform', value: fb.platform || '-', class: '' },
+        { label: 'Ülke', value: extra.Country || '-', class: 'green' },
+        { label: 'Cihaz Modeli', value: extra.DeviceModel || '-', class: '' },
+        { label: 'İşletim Sistemi', value: extra.DeviceSystem || '-', class: '' }
+      ];
+
+      let html = `
         <div class="result-header">
           <span class="badge ok">Sonuç Bulundu</span>
           <button class="copy-btn" id="copyBtn" onclick="copyResult()">JSON Kopyala</button>
         </div>
-        <div class="data-item" style="border:none; padding:0; margin-bottom:16px; align-items:center;">
-          <span class="data-key" style="color:#fff; font-size:1rem;">Sorgulanan UID</span>
-          <span class="data-value blue" style="font-weight:bold; font-size:1.2rem;">${data.uid}</span>
+        
+        <!-- Profil Kartı -->
+        <div class="profile-card">
+          <img src="${avatarUrl}" class="avatar" alt="Avatar" onerror="this.src='https://ui-avatars.com/api/?name=User&background=222&color=fff'">
+          <div class="profile-info">
+            <h3>${fb.nickname || 'İsimsiz Kullanıcı'}</h3>
+            <p>${extra.Country ? 'Konum: ' + extra.Country : 'Konum Bilinmiyor'}</p>
+          </div>
         </div>
-        ${apiDataHTML}
+
+        <!-- Veri Izgarası -->
+        <div class="grid-stats">
       `;
+
+      displayData.forEach(item => {
+        if (item.value && item.value !== 'undefined' && item.value !== 'null') {
+          html += `
+            <div class="stat-box">
+              <span class="stat-label">${item.label}</span>
+              <span class="stat-val ${item.class}">${item.value}</span>
+            </div>
+          `;
+        }
+      });
+
+      html += `</div>`;
+
+      result.className = 'result valid';
+      result.innerHTML = html;
     } catch (e) {
       result.className = 'result invalid';
-      result.innerHTML = '<div class="result-header"><span class="badge no">Hata</span></div><div style="color:#e6a8a8; text-align:center;">Sunucuya ulaşılamadı.</div>';
+      result.innerHTML = '<div class="result-header"><span class="badge no">Hata</span></div><div style="color:#e6a8a8; text-align:center;">Sunucuya ulaşılamadı veya veri okunamadı.</div>';
     }
   }
 
