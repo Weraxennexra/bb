@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Nexyn Services</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    background: #0a0a0a; color: #e0e0e0;
+    min-height: 100vh; display: flex;
+    align-items: center; justify-content: center; padding: 24px;
+    background-image:
+      radial-gradient(circle at 20% 20%, rgba(80,80,80,0.15) 0%, transparent 40%),
+      radial-gradient(circle at 80% 80%, rgba(60,60,60,0.12) 0%, transparent 40%);
+  }
+  .container {
+    width: 100%; max-width: 560px;
+    background: #141414; border: 1px solid #2a2a2a;
+    border-radius: 16px; padding: 48px 40px;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.6);
+    text-align: center;
+  }
+  .logo {
+    font-size: 2rem; font-weight: 700; letter-spacing: 1px;
+    margin-bottom: 8px;
+    background: linear-gradient(90deg, #fff, #888);
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  }
+  .subtitle { color: #777; font-size: 0.95rem; margin-bottom: 32px; }
+  .field { text-align: left; margin-bottom: 20px; }
+  .field label { display: block; color: #888; font-size: 0.85rem; margin-bottom: 8px; }
+  input {
+    width: 100%; padding: 14px 18px;
+    background: #1c1c1c; border: 1px solid #333;
+    border-radius: 10px; color: #f0f0f0;
+    font-size: 0.95rem; font-family: 'Courier New', monospace;
+    outline: none; transition: border-color 0.2s;
+  }
+  input:focus { border-color: #666; box-shadow: 0 0 0 3px rgba(120,120,120,0.15); }
+  input::placeholder { color: #555; }
+  button {
+    width: 100%; padding: 15px;
+    background: linear-gradient(135deg, #3a3a3a, #1f1f1f);
+    border: 1px solid #444; border-radius: 10px;
+    color: #fff; font-size: 1rem; font-weight: 600;
+    cursor: pointer; transition: all 0.2s; margin-top: 8px;
+  }
+  button:hover { background: linear-gradient(135deg, #4a4a4a, #2a2a2a); border-color: #666; }
+  
+  .msg { margin-top: 16px; font-size: 0.85rem; min-height: 20px; }
+  .msg.err { color: #e6a8a8; }
+  .msg.ok { color: #a8e6a8; }
+  
+  .discord-info {
+    margin-top: 24px;
+    font-size: 0.9rem;
+    color: #666;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+  }
+  .discord-info a {
+    color: #7289DA;
+    text-decoration: none;
+    font-weight: 600;
+    transition: color 0.2s;
+  }
+  .discord-info a:hover {
+    color: #99aab5;
+    text-decoration: underline;
+  }
+  
+  .footer { margin-top: 28px; font-size: 0.8rem; color: #444; }
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="logo">Nexyn Services</div>
+  <p class="subtitle">Devam etmek için erişim keyinizi girin</p>
+
+  <div class="field">
+    <label>Erişim Key</label>
+    <input type="text" id="keyInput" placeholder="NXN-XXXXXXXXXXXXXXXX" autocomplete="off">
+  </div>
+  <button onclick="verify()">Doğrula ve Giriş Yap</button>
+
+  <div class="msg" id="msg"></div>
+  
+  <div class="discord-info">
+    Key almak için Discord: <a href="https://discord.com/users/crystalsecurity" target="_blank">crystalsecurity</a>
+  </div>
+  
+  <div class="footer">© 2026 Nexyn Services</div>
+</div>
+
+<script>
+  const keyInput = document.getElementById('keyInput');
+  const msg = document.getElementById('msg');
+
+  keyInput.addEventListener('keypress', e => { if (e.key === 'Enter') verify(); });
+
+  if (sessionStorage.getItem('nexyn_key')) {
+    msg.className = 'msg ok';
+    msg.textContent = 'Daha önce giriş yaptınız. Sorgu sayfasına gidebilirsiniz.';
+  }
+
+  async function verify() {
+    const key = keyInput.value.trim();
+    if (!key) { showMsg('Key girin.', 'err'); return; }
+
+    showMsg('Doğrulanıyor...', 'ok');
+    try {
+      const r = await fetch('/api/verify-key', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ key })
+      });
+      const data = await r.json();
+      if (!r.ok) { showMsg(data.error || 'Geçersiz key.', 'err'); return; }
+
+      sessionStorage.setItem('nexyn_key', key);
+      showMsg('Key geçerli! Yönlendiriliyor...', 'ok');
+      setTimeout(() => location.href = '/lookup.html', 800);
+    } catch (e) {
+      showMsg('Sunucuya ulaşılamadı.', 'err');
+    }
+  }
+
+  function showMsg(text, type) {
+    msg.className = 'msg ' + type;
+    msg.textContent = text;
+  }
+</script>
+</body>
+</html>

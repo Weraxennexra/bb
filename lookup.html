@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Nexyn Services — UID Sorgu</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    background: #0a0a0a; color: #e0e0e0;
+    min-height: 100vh; padding: 32px 16px;
+    background-image:
+      radial-gradient(circle at 15% 15%, rgba(100,100,100,0.1) 0%, transparent 40%),
+      radial-gradient(circle at 85% 85%, rgba(60,60,60,0.1) 0%, transparent 40%);
+  }
+  .wrap { max-width: 850px; margin: 0 auto; }
+  
+  .topbar {
+    display: flex; justify-content: space-between;
+    align-items: center; margin-bottom: 24px; padding: 0 4px;
+  }
+  .logo {
+    font-size: 1.4rem; font-weight: 700; letter-spacing: 0.5px;
+    background: linear-gradient(90deg, #fff, #888);
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  }
+  .top-right { display: flex; align-items: center; gap: 16px; }
+  
+  .stats-badge {
+    background: #141414; border: 1px solid #2a2a2a;
+    padding: 8px 14px; border-radius: 8px;
+    font-size: 0.85rem; color: #aaa;
+    display: flex; gap: 12px;
+  }
+  .stats-badge span { color: #fff; font-weight: 600; }
+  
+  .logout {
+    background: transparent; border: 1px solid #333;
+    color: #888; padding: 8px 16px; border-radius: 8px;
+    cursor: pointer; font-size: 0.85rem; transition: all 0.2s;
+  }
+  .logout:hover { border-color: #666; color: #fff; background: #1a1a1a; }
+
+  .panel {
+    background: #141414; border: 1px solid #2a2a2a;
+    border-radius: 16px; padding: 32px;
+    box-shadow: 0 25px 50px -12px rgba(0,0,0,0.8);
+    margin-bottom: 24px;
+    position: relative; overflow: hidden;
+  }
+  .panel::before {
+    content: ''; position: absolute; top: 0; left: 0; width: 100%; height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.1), transparent);
+  }
+
+  h2 { font-size: 1.1rem; margin-bottom: 20px; color: #e0e0e0; font-weight: 600; }
+  
+  .input-group { display: flex; gap: 12px; margin-bottom: 16px; }
+  input[type="text"] {
+    flex: 1; padding: 16px 20px;
+    background: #0d0d0d; border: 1px solid #333;
+    border-radius: 12px; color: #fff;
+    font-size: 1rem; font-family: 'Courier New', monospace;
+    outline: none; transition: all 0.2s;
+  }
+  input:focus { border-color: #666; box-shadow: 0 0 0 4px rgba(120,120,120,0.1); background: #111; }
+  input::placeholder { color: #555; }
+  
+  button.action {
+    padding: 16px 32px;
+    background: linear-gradient(135deg, #444, #222);
+    border: 1px solid #555; border-radius: 12px;
+    color: #fff; font-weight: 600; font-size: 1rem;
+    cursor: pointer; transition: all 0.2s;
+    display: flex; align-items: center; gap: 8px;
+  }
+  button.action:hover { background: linear-gradient(135deg, #555, #333); border-color: #777; transform: translateY(-1px); }
+  button.action:active { transform: translateY(0); }
+
+  .history-header { font-size: 0.8rem; color: #666; margin: 20px 0 8px; text-transform: uppercase; letter-spacing: 1px; }
+  .tags-container { display: flex; flex-wrap: wrap; gap: 8px; }
+  .tag {
+    background: #1c1c1c; border: 1px solid #333; color: #aaa;
+    padding: 6px 12px; border-radius: 20px; font-size: 0.8rem;
+    cursor: pointer; transition: all 0.2s; display: flex; align-items: center; gap: 6px;
+  }
+  .tag:hover { background: #2a2a2a; color: #fff; border-color: #666; }
+
+  .result {
+    background: #111; border: 1px solid #2e2e2e;
+    border-radius: 12px; padding: 24px;
+    font-size: 0.92rem; color: #666;
+    min-height: 100px;
+    animation: fadeIn 0.3s ease;
+  }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+  
+  .result.valid { border-color: #3a5a3a; background: linear-gradient(180deg, rgba(40,70,40,0.1) 0%, #111 100%); }
+  .result.invalid { border-color: #5a3a3a; background: linear-gradient(180deg, rgba(70,40,40,0.1) 0%, #111 100%); }
+  
+  .result-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+  .badge {
+    display: inline-block; padding: 4px 12px;
+    border-radius: 20px; font-size: 0.8rem;
+    font-weight: 600;
+  }
+  .badge.ok { background: rgba(45,90,45,0.4); color: #a8e6a8; border: 1px solid #4a7c4a; }
+  .badge.no { background: rgba(90,45,45,0.4); color: #e6a8a8; border: 1px solid #7c4a4a; }
+  
+  .copy-btn {
+    background: transparent; border: 1px solid #444; color: #888;
+    padding: 4px 10px; border-radius: 6px; cursor: pointer; font-size: 0.75rem; transition: 0.2s;
+  }
+  .copy-btn:hover { background: #222; color: #fff; }
+
+  .data-list {
+    display: flex; flex-direction: column; gap: 8px;
+    background: #0a0a0a; border: 1px solid #222; border-radius: 8px; padding: 16px;
+  }
+  .data-item {
+    display: flex; justify-content: space-between; align-items: flex-start;
+    padding-bottom: 10px; border-bottom: 1px solid #1c1c1c;
+  }
+  .data-item:last-child { border-bottom: none; padding-bottom: 0; }
+  .data-key { color: #888; font-weight: 600; width: 40%; flex-shrink: 0; font-size: 0.85rem; }
+  .data-value {
+    color: #e0e0e0; font-family: 'Courier New', monospace;
+    text-align: right; word-break: break-all; width: 60%; font-size: 0.9rem;
+  }
+  .data-value.green { color: #a8e6a8; }
+  .data-value.red { color: #e6a8a8; }
+  .data-value.blue { color: #8ab4f8; }
+  
+  .footer { margin-top: 24px; text-align: center; font-size: 0.8rem; color: #444; }
+  
+  @media (max-width: 600px) {
+    .input-group { flex-direction: column; }
+    .panel { padding: 24px 20px; }
+    .data-item { flex-direction: column; gap: 4px; }
+    .data-key, .data-value { width: 100%; text-align: left; }
+    .topbar { flex-direction: column; gap: 16px; align-items: flex-start; }
+    .top-right { width: 100%; justify-content: space-between; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  
+  <div class="topbar">
+    <div class="logo">Nexyn Services</div>
+    <div class="top-right">
+      <div class="stats-badge" id="statsBadge">
+        Key: <span id="keyTime">Hesaplanıyor...</span> | Sorgu: <span id="queryCount">0</span>
+      </div>
+      <button class="logout" onclick="logout()">Çıkış</button>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h2>UID Sorgulama</h2>
+    <div class="input-group">
+      <input type="text" id="uidInput" placeholder="Sorgulamak istediğiniz UID'yi girin (örn: 1000)" autocomplete="off">
+      <button class="action" onclick="lookupUID()">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+        Sorgula
+      </button>
+    </div>
+
+    <div id="historyContainer" style="display:none;">
+      <div class="history-header">Son Sorgular</div>
+      <div class="tags-container" id="historyList"></div>
+    </div>
+  </div>
+
+  <div class="result" id="result">
+    <div style="text-align:center; padding: 20px 0; color: #555;">
+      <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="margin-bottom:10px; opacity:0.5;"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+      <br>Bir UID girerek sorgulama yapabilirsiniz.
+    </div>
+  </div>
+
+  <div class="footer">© 2026 Nexyn Services</div>
+</div>
+
+<script>
+  const KEY = sessionStorage.getItem('nexyn_key');
+  if (!KEY) {
+    alert('Önce key girmelisiniz.');
+    location.href = '/index.html';
+  }
+
+  let totalQueries = 0;
+  let lastDataJSON = null;
+  let queryHistory = [];
+
+  function updateTimeLabel(ms) {
+    const hours = Math.floor(ms / 3600000);
+    const mins = Math.floor((ms % 3600000) / 60000);
+    document.getElementById('keyTime').textContent = `${hours}s ${mins}dk`;
+  }
+
+  function logout() {
+    sessionStorage.removeItem('nexyn_key');
+    location.href = '/index.html';
+  }
+
+  function renderJSON(obj, prefix = '') {
+    let html = '';
+    for (const key in obj) {
+      if (!obj.hasOwnProperty(key)) continue;
+      const value = obj[key];
+      const fullKey = prefix ? `${prefix} → ${key}` : key;
+      
+      if (value === null || value === undefined) {
+        html += `<div class="data-item"><span class="data-key">${fullKey}</span><span class="data-value red">Yok</span></div>`;
+      } 
+      else if (typeof value === 'object' && !Array.isArray(value)) {
+        html += renderJSON(value, fullKey);
+      } 
+      else if (Array.isArray(value)) {
+        html += `<div class="data-item"><span class="data-key">${fullKey}</span><span class="data-value">${value.join(', ') || 'Boş'}</span></div>`;
+      } 
+      else {
+        let valStr = String(value);
+        let colorClass = '';
+        if (typeof value === 'boolean') colorClass = value ? 'green' : 'red';
+        else if (typeof value === 'number') colorClass = 'blue';
+        
+        if (valStr.startsWith('http')) {
+          valStr = `<a href="${valStr}" target="_blank" style="color:#8ab4f8; text-decoration:underline;">${valStr}</a>`;
+        }
+
+        html += `<div class="data-item"><span class="data-key">${fullKey}</span><span class="data-value ${colorClass}">${valStr}</span></div>`;
+      }
+    }
+    return html;
+  }
+
+  function addToHistory(uid) {
+    if (!queryHistory.includes(uid)) {
+      queryHistory.unshift(uid);
+      if (queryHistory.length > 5) queryHistory.pop();
+      
+      const container = document.getElementById('historyContainer');
+      const list = document.getElementById('historyList');
+      container.style.display = 'block';
+      list.innerHTML = '';
+      
+      queryHistory.forEach(item => {
+        const div = document.createElement('div');
+        div.className = 'tag';
+        div.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20v-6M6 20V10M18 20V4"/></svg> ${item}`;
+        div.onclick = () => {
+          document.getElementById('uidInput').value = item;
+          lookupUID();
+        };
+        list.appendChild(div);
+      });
+    }
+  }
+
+  function copyResult() {
+    if (!lastDataJSON) return;
+    navigator.clipboard.writeText(lastDataJSON).then(() => {
+      const btn = document.getElementById('copyBtn');
+      const oldText = btn.textContent;
+      btn.textContent = 'Kopyalandi';
+      btn.style.color = '#a8e6a8';
+      setTimeout(() => { btn.textContent = oldText; btn.style.color = ''; }, 2000);
+    });
+  }
+
+  async function lookupUID() {
+    const uid = document.getElementById('uidInput').value.trim();
+    const result = document.getElementById('result');
+    if (!uid || !/^\d+$/.test(uid)) {
+      result.className = 'result invalid';
+      result.innerHTML = '<div class="result-header"><span class="badge no">Hata</span></div><span style="color:#e6a8a8; display:inline-block;">Geçerli bir UID girin (sadece rakam).</span>';
+      return;
+    }
+
+    result.className = 'result';
+    result.innerHTML = '<div style="text-align:center; padding:20px; color:#888;">Sorgulanıyor...</div>';
+
+    try {
+      const r = await fetch('/api/uid-lookup', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ uid, key: KEY })
+      });
+      const data = await r.json();
+      
+      if (!r.ok) {
+        result.className = 'result invalid';
+        result.innerHTML = `<div class="result-header"><span class="badge no">Hata</span></div><div style="color:#e6a8a8; text-align:center;">${data.error || 'Bilinmeyen hata'}</div>`;
+        return;
+      }
+
+      totalQueries++;
+      document.getElementById('queryCount').textContent = totalQueries;
+      updateTimeLabel(data.remainingMs);
+      addToHistory(uid);
+      
+      lastDataJSON = JSON.stringify(data.data, null, 2);
+
+      let apiDataHTML = '';
+      if (Object.keys(data.data).length === 0) {
+        apiDataHTML = '<div style="color:#e6a8a8; text-align:center; padding:15px;">API yanıtı boş döndü.</div>';
+      } else {
+        apiDataHTML = `<div class="data-list">${renderJSON(data.data)}</div>`;
+      }
+
+      result.className = 'result valid';
+      result.innerHTML = `
+        <div class="result-header">
+          <span class="badge ok">Sonuç Bulundu</span>
+          <button class="copy-btn" id="copyBtn" onclick="copyResult()">JSON Kopyala</button>
+        </div>
+        <div class="data-item" style="border:none; padding:0; margin-bottom:16px; align-items:center;">
+          <span class="data-key" style="color:#fff; font-size:1rem;">Sorgulanan UID</span>
+          <span class="data-value blue" style="font-weight:bold; font-size:1.2rem;">${data.uid}</span>
+        </div>
+        ${apiDataHTML}
+      `;
+    } catch (e) {
+      result.className = 'result invalid';
+      result.innerHTML = '<div class="result-header"><span class="badge no">Hata</span></div><div style="color:#e6a8a8; text-align:center;">Sunucuya ulaşılamadı.</div>';
+    }
+  }
+
+  document.getElementById('uidInput').addEventListener('keypress', e => {
+    if (e.key === 'Enter') lookupUID();
+  });
+</script>
+</body>
+</html>
